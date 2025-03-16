@@ -112,13 +112,13 @@ def single_read(
     a_reg = tkw.read(
         a,
         elements_per_thread=ELEMENTS_PER_LOAD,
-        manually_specified_indexing=OrderedDict([(M, 1)]),
+        manually_specified_indexing=OrderedDict([(M, 4)]),
     )
     tkw.write(
         a_reg,
         a,
         elements_per_thread=ELEMENTS_PER_STORE,
-        manually_specified_indexing=OrderedDict([(M, 1)]),
+        manually_specified_indexing=OrderedDict([(M, 4)]),
     )
 
 

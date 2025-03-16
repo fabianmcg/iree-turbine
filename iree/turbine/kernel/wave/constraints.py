@@ -825,7 +825,7 @@ def verify_global_constraints(constraints: Sequence[Constraint]):
             for lc in lcs
         )
         if workgroup_dim == 0 or (
-            worgroup_dim < len(hw_cons.waves_per_block)
+            workgroup_dim < len(hw_cons.waves_per_block)
             and hw_cons.waves_per_block[workgroup_dim] != 1
         ):
             assert (

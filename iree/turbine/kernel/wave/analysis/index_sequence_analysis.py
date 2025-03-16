@@ -335,6 +335,7 @@ def populate_read_write_source_indices(
         vector_shapes = hardware_constraint.vector_shapes
 
     index: dict[IndexSymbol, IndexSequence] = {}
+    print("+" * 40)
     for dim in node.indexing_dims:
         wg_constraint = [x for x in workgroup_constraints if x.dim == dim]
         # If this dimension is not mapped to Workgroups then it is not mapped to
@@ -344,14 +345,16 @@ def populate_read_write_source_indices(
             continue
 
         thread_constraint = [x for x in thread_constraints if x.dim == dim]
-        # If dhis dimension is mapped to threads, we are in SIMT mode.
+        # If this dimension is mapped to threads, we are in SIMT mode.
         if thread_constraint:
             tc = thread_constraint[0]
             elements_per_thread = (
-                elements_per_thread
+                node.elements_per_thread
                 * tc.tile_size
                 * hardware_constraint.threads_per_block[idx_to_dim[tc.dim]]
             )
+            print(tc)
+            print(elements_per_thread)
         else:
             # Otherwise we are in in-between mode: dim may be either mapped to
             # WarpConstraint, TilingConstraint or UnrollingConstraint and the
@@ -361,10 +364,12 @@ def populate_read_write_source_indices(
                 if not is_contiguous_dim(dim, node.indexing_dims, vector_shapes)
                 else node.elements_per_thread
             )
-            stride = compute_stride(node.indexing_dims, vector_shapes, dim)
+        stride = compute_stride(node.indexing_dims, vector_shapes, dim)
+        print(stride)
         index[dim] = hardware_constraint.apply_read_write_thread_mapping(
             dim, wg_constraint[0].workgroup_dim, elements_per_thread, stride
         )
+        print(index[dim])
     return [(node, index, vector_shapes)]
 
 
@@ -542,24 +547,32 @@ def set_thread_dependent_index_from_read_write(
     sources = trace.walk(lambda node: isinstance(get_custom(node), (Read, Write)))
     sources = [get_custom(x) for x in sources]
     assert sources, "No read nodes found in the graph."
+    print("*" * 80)
+    print(hardware_constraint)
 
     visited = set()
     workgroup_constraints = [
         c for c in constraints if isinstance(c, WorkgroupConstraint)
     ]
+    print(workgroup_constraints)
     thread_constraints = [c for c in constraints if isinstance(c, ThreadConstraint)]
+    print(thread_constraints)
     symbolic_constraints = [c for c in constraints if isinstance(c, SymbolicAlias)]
+    print(symbolic_constraints)
     for source in sources:
         visited = visited.union(set([x for x in sources]))
         visited.remove(source)
         indices = populate_read_write_source_indices(
             source, hardware_constraint, workgroup_constraints, thread_constraints
         )
+        print(indices)
         visited = propagate_indices(
             indices,
             visited,
             symbolic_constraints,
         )
+        print(visited)
+    print("*" * 80)
 
 
 def set_post_expansion_indices(trace: CapturedTrace, constraints: list[Constraint]):

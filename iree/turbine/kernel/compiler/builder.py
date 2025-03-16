@@ -74,6 +74,7 @@ class ModuleBuilder:
     ):
         if module_op:
             self.module_op = module_op
+            print(str(module_op), flush=True)
             self.body_block = module_op.regions[0].blocks[0]
         else:
             if not context:
