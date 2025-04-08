@@ -911,8 +911,8 @@ def test_unary_lowerings():
     ]
     constraints += [tkw.WorkgroupConstraint(M, BLOCK_M, 0)]
     constraints += [tkw.WorkgroupConstraint(N, BLOCK_N, 1)]
-    constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
-    constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
+    constraints += [tkw.WaveConstraint(M, BLOCK_M)]
+    constraints += [tkw.WaveConstraint(N, BLOCK_N)]
 
     @tkw.wave(constraints)
     def test(
@@ -1792,8 +1792,8 @@ def test_binary_lowerings():
     ]
     constraints += [tkw.WorkgroupConstraint(M, BLOCK_M, 0)]
     constraints += [tkw.WorkgroupConstraint(N, BLOCK_N, 1)]
-    constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
-    constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
+    constraints += [tkw.WaveConstraint(M, BLOCK_M)]
+    constraints += [tkw.WaveConstraint(N, BLOCK_N)]
 
     @tkw.wave(constraints)
     def binary_lowerings(
@@ -1827,8 +1827,8 @@ def test_int_comparisons():
     ]
     constraints += [tkw.WorkgroupConstraint(M, BLOCK_M, 0)]
     constraints += [tkw.WorkgroupConstraint(N, BLOCK_N, 1)]
-    constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
-    constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
+    constraints += [tkw.WaveConstraint(M, BLOCK_M)]
+    constraints += [tkw.WaveConstraint(N, BLOCK_N)]
 
     @tkw.wave(constraints)
     def cmp_lowerings(
@@ -1869,8 +1869,8 @@ def test_verbose_int_comparisons():
     ]
     constraints += [tkw.WorkgroupConstraint(M, BLOCK_M, 0)]
     constraints += [tkw.WorkgroupConstraint(N, BLOCK_N, 1)]
-    constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
-    constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
+    constraints += [tkw.WaveConstraint(M, BLOCK_M)]
+    constraints += [tkw.WaveConstraint(N, BLOCK_N)]
 
     @tkw.wave(constraints)
     def verbose_cmp_lowerings(

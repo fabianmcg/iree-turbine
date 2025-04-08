@@ -11,6 +11,7 @@ from ..constraints import (
     HardwareConstraint,
     WorkgroupConstraint,
     TilingConstraint,
+    get_constraints_by_dim,
 )
 from torch import fx
 from ..._support.indexing import IndexingContext, IndexSymbol
@@ -31,6 +32,7 @@ import itertools
 from ..utils.graph_utils import (
     get_inputs,
 )
+from sympy import ceiling as _ceiling
 
 
 class ExpansionMetadata:
@@ -63,6 +65,7 @@ def get_dim_scaling(
         raise ValueError("Exactly one hardware constraint must be provided")
 
     idxc = IndexingContext.current()
+    constraint_map = get_constraints_by_dim(constraints)
     for constraint in constraints:
         if isinstance(constraint, WorkgroupConstraint) or isinstance(
             constraint, TilingConstraint
@@ -79,7 +82,11 @@ def get_dim_scaling(
 
             wave_count = 1
             if isinstance(constraint, WorkgroupConstraint):
-                wave_count = hw_cons.waves_per_block[constraint.workgroup_dim]
+                _, wave_constraint = constraint_map[constraint.dim]
+                if wave_constraint is not None:
+                    wave_count = idxc.get_static_value(
+                        _ceiling(constraint.tile_size / wave_constraint.tile_size)
+                    )
             if tile_size is None or wave_count is None or vector_size is None:
                 raise ValueError(
                     "Tile size, wave count and vector size must be statically known"

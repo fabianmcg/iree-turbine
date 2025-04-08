@@ -8,7 +8,7 @@
 from sympy.utilities.lambdify import lambdastr
 import iree.turbine.kernel.lang as tkl
 from ..compiler import builder, dispatch_codegen, kernel_codegen, host_codegen
-from ..lang import Grid, IndexMapping
+from ..lang import Grid, IndexMapping, ThreadBlock
 from ..lang.global_symbols import *
 from ..ops import wave_ops
 from ..ops.wave_ops import Reduction, CustomOp, get_custom, IterArg
@@ -30,6 +30,7 @@ from .constraints import (
     WaveConstraint,
     WorkgroupConstraint,
     get_grid_shape,
+    initialize_and_check_constraints,
 )
 
 # Passes
@@ -60,7 +61,7 @@ from .shared_memory_indexing import (
 )
 
 # Utils
-from .utils.symbol_utils import subs_idxc, safe_subs
+from .utils.symbol_utils import subs_idxc, safe_subs, delinearize_index
 from .utils.classes import KernelLaunchInfo
 from .utils.print_utils import print_trace, try_apply_pass
 from .utils.graph_utils import (
@@ -70,7 +71,6 @@ from .utils.graph_utils import (
 )
 from .utils.compile_utils import canonicalize_module
 from .utils.general_utils import (
-    delinearize_index,
     partial,
     get_hardware_constraint,
     remove_files_with_extension,
@@ -252,22 +252,6 @@ class LaunchableWave(Launchable):
             for tiling_constraint in self.tiling_constraints:
                 if tiling_constraint.dim == custom.axis:
                     tiling_constraint.induction_var = self.induction_vars[custom]
-
-    def initialize_wave_constraints(self, trace: CapturedTrace) -> None:
-        """
-        For each wave constraint, determines the appropriate wave id by looking
-        for workgroup constraints along the same dimension and using information
-        from the hardware constraints.
-
-        """
-
-        hardware_constraint = self.hardware_constraints[0]
-        for wave_constraint in self.wave_constraints:
-            for workgroup_constraint in self.workgroup_constraints:
-                if wave_constraint.dim == workgroup_constraint.dim:
-                    wave_constraint.set_wave_id_from_hardware_and_workgroup_constraint(
-                        hardware_constraint, workgroup_constraint
-                    )
 
     def initialize_reductions(self, trace: CapturedTrace) -> None:
         """
@@ -452,7 +436,6 @@ class LaunchableWave(Launchable):
         return [
             partial(initialize_iter_args, trace),
             partial(self.create_induction_vars, trace),
-            partial(self.initialize_wave_constraints, trace),
             partial(self.initialize_reductions, trace),
             partial(self.initialize_symbolic_constraints, trace),
             partial(self.initialize_workgroup_constraints, trace),
@@ -513,6 +496,10 @@ class LaunchableWave(Launchable):
         ):
             print(f"***After trace/Before first pass***\n")
             print_trace(trace)
+
+        idxc = IndexingContext.current()
+        # Check and initialize the constraints.
+        initialize_and_check_constraints(self.constraints, idxc)
 
         # Initial passes, pre-optimization.
         graph_passes = self.build_initial_pass_pipeline(
@@ -581,6 +568,9 @@ class LaunchableWave(Launchable):
         if options.print_grid:
             print(f"Grid: {self.grid_type}")
 
+        if options.print_block:
+            print(f"Block: {self.thread_block}")
+
         # Add grid and block dims to kernel launch info.
         # Convert the grid into a lambda that we can use to compute the grid dimension.
         options.kernel_launch_info.grid = sympy.lambdify(
@@ -589,9 +579,9 @@ class LaunchableWave(Launchable):
         options.kernel_launch_info.grid_str = lambdastr(
             [list(options.dynamic_symbols_map.keys())], self.grid_type.dims
         )
-        options.kernel_launch_info.blocks = [
-            int(x) for x in get_hardware_constraint(self.constraints).threads_per_block
-        ]
+        options.kernel_launch_info.blocks = self.hardware_constraints[
+            0
+        ].threads_per_block
         options.kernel_launch_info.func_name = self._name
 
         return (
