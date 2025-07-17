@@ -12,7 +12,6 @@ from iree.runtime import (
     HalDevice,
 )
 from iree.turbine.runtime import Launchable, Device
-from iree.turbine.runtime.device import get_device_from_torch
 
 from tempfile import TemporaryDirectory
 from torch.autograd import DeviceType
