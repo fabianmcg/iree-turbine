@@ -14,6 +14,7 @@ def v1(x, y):
     torch_run = TorchModule(model, (x, y))
     torch_r = torch_run.run()
     iree_r = iree_run.run()
+    torch.cuda.synchronize()
 
     for i, (t_r, i_r) in enumerate(zip(torch_r, iree_r)):
         print(f"Error out[{i}]: {rel_error(t_r, i_r)}", flush=True)
@@ -31,6 +32,7 @@ def v2(x, y):
     torch_run = TorchModule(model, (x, y))
     torch_r = torch_run.run()
     iree_r = iree_run.run()
+    torch.cuda.synchronize()
 
     for i, (t_r, i_r) in enumerate(zip(torch_r, iree_r)):
         print(f"Error out[{i}]: {rel_error(t_r, i_r)}", flush=True)

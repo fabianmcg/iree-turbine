@@ -4,13 +4,7 @@ import torch.nn as nn
 import iree.turbine.aot as aot
 
 from iree.compiler import compile_file, OutputFormat
-from iree.runtime import (
-    VmModule,
-    DeviceArray,
-    asdevicearray,
-    BufferUsage,
-    HalDevice,
-)
+from iree.runtime import VmModule
 from iree.turbine.runtime import Launchable, Device
 
 from tempfile import TemporaryDirectory
@@ -41,6 +35,8 @@ def from_torch(v: Any):
 def rel_error(x_true: np.ndarray | torch.Tensor, x: np.ndarray | torch.Tensor):
     assert type(x_true) == type(x)
     if isinstance(x_true, torch.Tensor):
+        x = x.detach().to(dtype=torch.float64)
+        x_true = x_true.detach().to(dtype=torch.float64)
         return torch.linalg.norm(x - x_true) / torch.linalg.norm(x_true)
     x_true = x_true.astype(np.float64)
     x = x.astype(np.float64)
@@ -59,10 +55,12 @@ class Run:
     ):
         with torch_profile(
             activities=[ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(wait=1, warmup=5, active=num_its),
+            schedule=torch.profiler.schedule(
+                wait=5, warmup=5, active=num_its, skip_first=5
+            ),
             record_shapes=True,
         ) as prof:
-            for i in range(num_its + 6):
+            for i in range(num_its + 15):
                 self.run()
                 prof.step()
         events = prof.key_averages(group_by_input_shape=True)
@@ -75,7 +73,7 @@ class Run:
             [
                 event.self_device_time_total
                 for event in events
-                if event.device_type == DeviceType.CUDA
+                if event.device_type == DeviceType.CUDA and ("emcpy" not in event.key)
             ]
         ).sum() / (num_its * 1000.0)
 
@@ -97,7 +95,7 @@ class IREEModule(Run):
             vm_instance = device.vm_instance
             return VmModule.copy_buffer(vm_instance, vmfb_bytes)
 
-        self.kernel = Launchable.from_vm_module(get_vmfb)
+        self.kernel = Launchable.from_vm_module(get_vmfb, entry_point="main")
 
     @staticmethod
     def compile(
@@ -127,7 +125,6 @@ class IREEModule(Run):
                 "--iree-hip-target=gfx942",
                 "--iree-opt-level=O3",
                 "--iree-opt-strip-assertions=true",
-                "--iree-preprocessing-pass-pipeline=builtin.module(util.func(iree-preprocessing-make-single-dispatch))",
             ],
             output_format=OutputFormat.FLATBUFFER_BINARY,
             strip_source_map=True,
@@ -150,3 +147,11 @@ class IREEModule(Run):
 
     def run(self):
         return self.kernel(*self.arguments)
+
+
+torch_types = {
+    "bf16": torch.bfloat16,
+    "f16": torch.float16,
+    "f32": torch.float32,
+    "f64": torch.float64,
+}
