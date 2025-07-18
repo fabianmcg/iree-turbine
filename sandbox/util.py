@@ -53,6 +53,7 @@ class Run:
     def profile(
         self, num_its: int = 10, print_profile: bool = True, row_limit: int = 20
     ):
+        torch.cuda.synchronize()
         with torch_profile(
             activities=[ProfilerActivity.CUDA],
             schedule=torch.profiler.schedule(
@@ -62,6 +63,7 @@ class Run:
         ) as prof:
             for i in range(num_its + 15):
                 self.run()
+                torch.cuda.synchronize()
                 prof.step()
         events = prof.key_averages(group_by_input_shape=True)
         if print_profile:
@@ -125,6 +127,7 @@ class IREEModule(Run):
                 "--iree-hip-target=gfx942",
                 "--iree-opt-level=O3",
                 "--iree-opt-strip-assertions=true",
+                "--iree-preprocessing-pass-pipeline=builtin.module(util.func(iree-preprocessing-make-single-dispatch))",
             ],
             output_format=OutputFormat.FLATBUFFER_BINARY,
             strip_source_map=True,
